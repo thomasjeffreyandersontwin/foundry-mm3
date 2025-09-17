@@ -56,6 +56,39 @@ export class editAtk {
             {
             key:'volonte',
             label:`${game.i18n.localize("MM3.DEFENSE.Volonte")}`,
+            },
+            // Abilities as resistance types
+            {
+            key:'force',
+            label:`${game.i18n.localize("MM3.CARACTERISTIQUES.Force")}`,
+            },
+            {
+            key:'endurance',
+            label:`${game.i18n.localize("MM3.CARACTERISTIQUES.Endurance")}`,
+            },
+            {
+            key:'agilite',
+            label:`${game.i18n.localize("MM3.CARACTERISTIQUES.Agilite")}`,
+            },
+            {
+            key:'dexterite',
+            label:`${game.i18n.localize("MM3.CARACTERISTIQUES.Dexterite")}`,
+            },
+            {
+            key:'combativite',
+            label:`${game.i18n.localize("MM3.CARACTERISTIQUES.Combativite")}`,
+            },
+            {
+            key:'intelligence',
+            label:`${game.i18n.localize("MM3.CARACTERISTIQUES.Intelligence")}`,
+            },
+            {
+            key:'sensibilite',
+            label:`${game.i18n.localize("MM3.CARACTERISTIQUES.Sensibilite")}`,
+            },
+            {
+            key:'presence',
+            label:`${game.i18n.localize("MM3.CARACTERISTIQUES.Presence")}`,
         }]
         const options = {
             label:dataAtk.label,
@@ -82,7 +115,15 @@ export class editAtk {
                 },
                 {
                 key:'afflictiondmg',
-                label:`${game.i18n.localize("MM3.ROLL.Typeattaque")} : ${game.i18n.localize("MM3.ROLL.TYPE.Affliction")} +  ${game.i18n.localize("MM3.ROLL.TYPE.Degats")}`,
+                label:`${game.i18n.localize("MM3.ROLL.Typeattaque")} : ${game.i18n.localize("MM3.ROLL.TYPE.Affliction")} + ${game.i18n.localize("MM3.ROLL.TYPE.Degats")}`,
+                },
+                {
+                key:'weaken',
+                label:`${game.i18n.localize("MM3.ROLL.Typeattaque")} : ${game.i18n.localize("MM3.ROLL.TYPE.Weaken")}`,
+                },
+                {
+                key:'afflictiondmgweaken',
+                label:`${game.i18n.localize("MM3.ROLL.Typeattaque")} : ${game.i18n.localize("MM3.ROLL.TYPE.Affliction")} + ${game.i18n.localize("MM3.ROLL.TYPE.Degats")} + ${game.i18n.localize("MM3.ROLL.TYPE.Weaken")}`,
                 }]
             });
         }
@@ -295,12 +336,12 @@ export class editAtk {
             allData.push({
                 type:'repeat',
                 css:'affliction',
-                class:type === 'affliction' || type === 'afflictiondmg' ? 'repeat' : 'repeat hidden',
+                class:type === 'affliction' || type === 'afflictiondmg' || type === 'afflictiondmgweaken' ? 'repeat' : 'repeat hidden',
                 label:game.i18n.localize('MM3.ROLL.TYPE.Affliction'),
                 selected:dataAtk?.save?.affliction?.type ?? 'volonte',
                 defenses:defenses,
                 basedefense:dataAtk?.save?.affliction?.defense ?? 10,
-                effet:dataAtk?.save?.affliction?.effet ?? 0,
+                effet:dataAtk?.save?.dmg?.effet ?? 0,
                 list:dataAtk.repeat.affliction.map(aff => ({
                     value:aff?.value ?? 0,
                     status:aff?.status ?? [],
@@ -309,11 +350,46 @@ export class editAtk {
             });
         }
 
+        if(selectedOptions.includes('weaken')) {
+            // Create list of all abilities and defenses for weaken target selection
+            const weakenTargets = [
+                // Abilities
+                {key:'force', label:game.i18n.localize("MM3.CARACTERISTIQUES.Force")},
+                {key:'endurance', label:game.i18n.localize("MM3.CARACTERISTIQUES.Endurance")},
+                {key:'agilite', label:game.i18n.localize("MM3.CARACTERISTIQUES.Agilite")},
+                {key:'dexterite', label:game.i18n.localize("MM3.CARACTERISTIQUES.Dexterite")},
+                {key:'combativite', label:game.i18n.localize("MM3.CARACTERISTIQUES.Combativite")},
+                {key:'intelligence', label:game.i18n.localize("MM3.CARACTERISTIQUES.Intelligence")},
+                {key:'sensibilite', label:game.i18n.localize("MM3.CARACTERISTIQUES.Sensibilite")},
+                {key:'presence', label:game.i18n.localize("MM3.CARACTERISTIQUES.Presence")},
+                // Defenses
+                {key:'esquive', label:game.i18n.localize("MM3.DEFENSE.Esquive")},
+                {key:'parade', label:game.i18n.localize("MM3.DEFENSE.Parade")},
+                {key:'vigueur', label:game.i18n.localize("MM3.DEFENSE.Vigueur")},
+                {key:'robustesse', label:game.i18n.localize("MM3.DEFENSE.Robustesse")},
+                {key:'volonte', label:game.i18n.localize("MM3.DEFENSE.Volonte")},
+            ];
+
+            allData.push({
+                type:'repeat',
+                css:'weaken',
+                class:type === 'weaken' || type === 'afflictiondmgweaken' ? 'repeat' : 'repeat hidden',
+                label:game.i18n.localize('MM3.ROLL.TYPE.Weaken'),
+                selected:dataAtk?.save?.weaken?.type ?? 'vigueur',
+                defenses:defenses,
+                basedefense:dataAtk?.save?.weaken?.defense ?? 10,
+                effet:dataAtk?.save?.weaken?.effet ?? 0,
+                targetAbility:dataAtk?.repeat?.weaken?.targetAbility ?? 'force',
+                weakenTargets:weakenTargets,
+                list:[], // Weaken doesn't use degree-based repeat list
+            });
+        }
+
         if(selectedOptions.includes('dmg')) {
             allData.push({
                 type:'repeat',
                 css:'dmg',
-                class:type === 'dmg' || type === 'afflictiondmg' ? 'repeat' : 'repeat hidden',
+                class:type === 'dmg' || type === 'afflictiondmg' || type === 'afflictiondmgweaken' ? 'repeat' : 'repeat hidden',
                 label:game.i18n.localize('MM3.ROLL.TYPE.Degats'),
                 selected:dataAtk?.save?.dmg?.type ?? 'robustesse',
                 defenses:defenses,
@@ -337,9 +413,11 @@ export class editAtk {
     async handleDialog() {
         const dataAtk = this.atk.data;
 
-        if(dataAtk.isAffliction && dataAtk.isDmg) this.type = 'afflictiondmg';
+        if(dataAtk.isAffliction && dataAtk.isDmg && dataAtk.isWeaken) this.type = 'afflictiondmgweaken';
+        else if(dataAtk.isAffliction && dataAtk.isDmg) this.type = 'afflictiondmg';
         else if(dataAtk.isAffliction) this.type = 'affliction';
         else if(dataAtk.isDmg) this.type = 'dmg';
+        else if(dataAtk.isWeaken) this.type = 'weaken';
 
         let data = {}
         data.title = dataAtk.label;
@@ -397,6 +475,8 @@ export class editAtk {
         const listStatusDmg = blockStatusDmg.find('div.data div.line');
         const blockStatusAffliction = body.find(`div.repeat.affliction`);
         const listStatusAffliction = blockStatusAffliction.find('div.data div.line');
+        const blockStatusWeaken = body.find(`div.repeat.weaken`);
+        const listStatusWeaken = blockStatusWeaken.find('div.data div.line');
         const hasArea = $(body.find(`a.area`)).hasClass('selected') || false;
         const areaDodge = $(body.find(`.areaDodge input`)).val();
         const modAtk = $(body.find(`.modatk input`)).val();
@@ -413,6 +493,18 @@ export class editAtk {
         const effetDmg = $(blockStatusDmg.find('div.innerData .rangeff input')).val();
         const typeDefDmg = $(blockStatusDmg.find('div.innerData .rtypedefense')).val();
 
+        const baseDefWeaken = $(blockStatusWeaken.find('div.innerData .rbasedefense input')).val();
+        const effetWeaken = $(blockStatusWeaken.find('div.innerData .rangeff input')).val();
+        const typeDefWeaken = $(blockStatusWeaken.find('div.innerData .rtypedefense')).val();
+        const targetAbilityWeaken = $(blockStatusWeaken.find('div.innerData select.targetability')).val();
+
+        console.log('EditAtk Debug - Weaken Target:', {
+            typeatk,
+            targetAbilityWeaken,
+            blockStatusWeaken: blockStatusWeaken.length,
+            hasWeakenBlock: blockStatusWeaken.length > 0
+        });
+
         const std = `system.attaque.${this.atk.key}`;
         let update = {};
 
@@ -422,21 +514,37 @@ export class editAtk {
             case 'affliction':
                 update[`${std}.isAffliction`] = true;
                 update[`${std}.isDmg`] = false;
+                update[`${std}.isWeaken`] = false;
                 break;
 
             case 'dmg':
                 update[`${std}.isAffliction`] = false;
                 update[`${std}.isDmg`] = true;
+                update[`${std}.isWeaken`] = false;
                 break;
 
             case 'afflictiondmg':
                 update[`${std}.isAffliction`] = true;
                 update[`${std}.isDmg`] = true;
+                update[`${std}.isWeaken`] = false;
+                break;
+
+            case 'afflictiondmgweaken':
+                update[`${std}.isAffliction`] = true;
+                update[`${std}.isDmg`] = true;
+                update[`${std}.isWeaken`] = true;
+                break;
+
+            case 'weaken':
+                update[`${std}.isAffliction`] = false;
+                update[`${std}.isDmg`] = false;
+                update[`${std}.isWeaken`] = true;
                 break;
 
             default:
                 update[`${std}.isAffliction`] = false;
                 update[`${std}.isDmg`] = false;
+                update[`${std}.isWeaken`] = false;
                 break;
         }
 
@@ -464,6 +572,15 @@ export class editAtk {
         if(typeDefDmg) update[`${std}.save.dmg.type`] = typeDefDmg;
         if(baseDefDmg) update[`${std}.save.dmg.defense`] = baseDefDmg;
         if(effetDmg) update[`${std}.save.dmg.effet`] = effetDmg;
+
+        if(typeDefWeaken) update[`${std}.save.weaken.type`] = typeDefWeaken;
+        if(baseDefWeaken) update[`${std}.save.weaken.defense`] = baseDefWeaken;
+        if(effetWeaken) update[`${std}.save.weaken.effet`] = effetWeaken;
+        
+        // Always save target ability for Weaken attacks (default to 'force' if empty)
+        if(typeatk === 'weaken' || typeatk === 'afflictiondmgweaken') {
+            update[`${std}.repeat.weaken.targetAbility`] = targetAbilityWeaken || 'force';
+        }
 
         let dmg = [];
 
@@ -503,6 +620,8 @@ export class editAtk {
 
         if(affliction.length > 0) update[`${std}.repeat.affliction`] = affliction;
 
+        // Weaken doesn't use repeat list, just target ability selection
+
         if(hasArea) {
             update[`${std}.area.has`] = hasArea;
             update[`${std}.area.esquive`] = areaDodge;
@@ -514,6 +633,12 @@ export class editAtk {
         update[`${std}.save.other.defense`] = baseDef;
         update[`${std}.save.other.type`] = typeDefOther;
         update[`${std}.save.passive.type`] = defPassive;
+
+        console.log('EditAtk Final Update:', {
+            update,
+            targetAbilityWeaken,
+            hasWeakenUpdate: update[`${std}.repeat.weaken.targetAbility`] !== undefined
+        });
 
         this.actor.update(update);
     }
@@ -568,26 +693,42 @@ export class editAtk {
             const type = target.val();
             const dmg = $(html.find('.repeat.dmg'));
             const affliction = $(html.find('.repeat.affliction'));
+            const weaken = $(html.find('.repeat.weaken'));
 
             switch(type) {
                 case 'dmg':
                     dmg.removeClass('hidden');
 
                     if(!affliction.hasClass('hidden')) affliction.addClass('hidden');
+                    if(!weaken.hasClass('hidden')) weaken.addClass('hidden');
                     break;
                 case 'affliction':
                     affliction.removeClass('hidden');
 
                     if(!dmg.hasClass('hidden')) dmg.addClass('hidden');
+                    if(!weaken.hasClass('hidden')) weaken.addClass('hidden');
                     break;
                 case 'afflictiondmg':
                     dmg.removeClass('hidden');
                     affliction.removeClass('hidden');
+                    if(!weaken.hasClass('hidden')) weaken.addClass('hidden');
+                    break;
+                case 'afflictiondmgweaken':
+                    dmg.removeClass('hidden');
+                    affliction.removeClass('hidden');
+                    weaken.removeClass('hidden');
+                    break;
+                case 'weaken':
+                    weaken.removeClass('hidden');
+
+                    if(!dmg.hasClass('hidden')) dmg.addClass('hidden');
+                    if(!affliction.hasClass('hidden')) affliction.addClass('hidden');
                     break;
 
                 default:
                     if(!dmg.hasClass('hidden')) dmg.addClass('hidden');
                     if(!affliction.hasClass('hidden')) affliction.addClass('hidden');
+                    if(!weaken.hasClass('hidden')) weaken.addClass('hidden');
                     break;
             }
 
@@ -754,7 +895,7 @@ export class editAtk {
         const rangeff = $(html.find('section.body .rangeff'));
         const type = $(html.find('section.body .typeatk')).val();
 
-        if(type === 'dmg' || type === 'affliction') {
+        if(type === 'dmg' || type === 'affliction' || type === 'weaken') {
             if((pwr && pwrchoice !== '') || (ability && abychoice !== '')) {
                 for(let re of rangeff) {
                     if(!$(re).hasClass('hidden')) $(re).addClass('hidden');
@@ -765,7 +906,7 @@ export class editAtk {
                     $(re).removeClass('hidden');
                 }
             }
-        } else if(type === 'afflictiondmg') {
+        } else if(type === 'afflictiondmg' || type === 'afflictiondmgweaken') {
             for(let re of rangeff) {
                 $(re).removeClass('hidden');
             }
@@ -783,6 +924,8 @@ export class editAtk {
             case 'dmg':
             case 'affliction':
             case 'afflictiondmg':
+            case 'weaken':
+            case 'afflictiondmgweaken':
                 if(!defense.hasClass('hidden')) defense.addClass('hidden');
                 if(!save.hasClass('hidden')) save.addClass('hidden');
                 if(!modeff.hasClass('hidden')) modeff.addClass('hidden');

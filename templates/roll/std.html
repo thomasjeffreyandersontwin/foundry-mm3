@@ -1,10 +1,12 @@
 <div class="dice-roll mm3-roll">
     <div class="dice-result">
+        {{#if tgtName}}
+            <div class="dice-total formula tgtName" style="padding: 4px 8px; background-color: transparent; color: #333; margin: 0; display: flex; align-items: center; font-size: 13px; font-weight: 500; border: none;">
+                <img src="{{tgtImage}}" style="width: 40px; height: auto; max-height: 40px; border-radius: 3px; margin-right: 8px; object-fit: contain;">attacks {{tgtName}}
+            </div>
+        {{/if}}
         {{#if flavor}}
         <h4 class="dice-total flavor">{{flavor}}</h4>
-        {{/if}}
-        {{#if tgtName}}
-            <h4 class="dice-total formula tgtName">{{localize "MM3.Cible"}} : {{tgtName}}</h4>
         {{/if}}
         {{#if formula}}
             <h4 class="dice-total formula">{{formula}}</h4>
@@ -12,7 +14,16 @@
         {{#if tooltip}} {{{tooltip}}} {{/if}}
         {{#if result}}
         <h4 class="dice-total result">
-            {{result}}
+            {{#if isCombat}}
+                <span style="background-color: #aaa; color: black; padding: 1px 4px; border-radius: 2px; margin: 0 2px;">{{result}}</span>
+                {{#if defense}}
+                    vs <span style="background-color: #aaa; color: black; padding: 1px 4px; border-radius: 2px; margin: 0 2px;">{{defense}}</span> {{type}}
+                {{else if btn}}
+                    vs DC <span style="background-color: #aaa; color: black; padding: 1px 4px; border-radius: 2px; margin: 0 2px;">{{btn.0.vs}}</span> {{btn.0.saveType}}
+                {{/if}}
+            {{else}}
+                <span style="background-color: #aaa; color: black; padding: 1px 4px; border-radius: 2px; margin: 0 2px;">{{result}}</span>{{#if vs}} vs <span style="background-color: #aaa; color: black; padding: 1px 4px; border-radius: 2px; margin: 0 2px;">{{vs}}</span>{{/if}}
+            {{/if}}
         </h4>
         {{/if}}
         {{#if isCritique}}
@@ -28,12 +39,19 @@
                 {{else}}
                     {{localize "MM3.ROLL.AttFail"}}
                 {{/if}}
-            </h4>
+            
             <div class="dice-tooltip dataAttack toHide">
                 <div class="inner">
                     <span>{{type}} : {{defense}}</span>
                 </div>
             </div>
+            {{#if btn}}
+            <div class="dice-tooltip dataAttack">
+                <div class="inner">
+                    <span>vs DC: {{btn.0.vs}}</span>
+                </div>
+            </div>
+            {{/if}}
             {{/if}}
             {{#if isSuccess}}
                 {{#if degreSuccess}}
@@ -47,8 +65,11 @@
                 {{#each btn as | key dBtn |}}
                     <div class="btn">
                         <button class="btnRoll" data-type="{{key.typeAtk}}" data-target="{{key.target}}" data-savetype="{{key.saveType}}" data-vs="{{key.vs}}" data-dAtk="{{@root/dataAtk}}" data-dStr="{{@root/dataStr}}">
-                            {{translate 'jetdefenses' key.saveType}}
+                            {{#if key.label}}{{key.label}}{{else}}{{translate 'jetdefenses' key.saveType}}{{/if}} (DC {{key.vs}})
                         </button>
+                        {{#if (and key.typeAtk (gt @root/btn.length 1))}}
+                            <div style="text-align: center; font-size: 12px; color: #666; text-transform: capitalize; line-height: 1; margin-top: 0px; margin-bottom: 2px;">{{key.typeAtk}}</div>
+                        {{/if}}
                     </div>
                 {{/each}}
             {{/if}}
@@ -66,15 +87,27 @@
                     <span>{{localize "MM3.ROLL.DD"}} : {{vs}}</span>
                 </div>
             </div>
+            <div class="dice-tooltip dataAttack">
+                <div class="inner">
+                    <span>DC: {{vs}}</span>
+                </div>
+            </div>
             {{#if hasMarge}}
             <h4 class="dice-total attack">
-                {{singularOrPlural resultMarge successOrFail}} : {{resultMarge}}
+                {{singularOrPlural resultMarge successOrFail}} : <span style="background-color: #aaa; color: black; padding: 1px 4px; border-radius: 2px; margin: 0 2px;">{{resultMarge}}</span>
             </h4>
+            {{/if}}
+            {{#if appliedConditions}}
+                {{#each appliedConditions}}
+                <h4 class="dice-total attack">
+                    {{../tgtName}} is {{this}}!
+                </h4>
+                {{/each}}
             {{/if}}
             {{#each btn as | key dBtn |}}
                 <div class="btn">
                     <button class="btnRoll" data-type="{{key.typeAtk}}" data-target="{{key.target}}" data-savetype="{{key.saveType}}" data-vs="{{key.vs}}" data-dAtk="{{@root/dataAtk}}" data-dStr="{{@root/dataStr}}">
-                        {{translate 'jetdefenses' key.saveType}}
+                        {{translate 'jetdefenses' key.saveType}} (DC {{key.vs}})
                     </button>
                 </div>
             {{/each}}

@@ -178,6 +178,15 @@ MM3.defenses = {
     "vigueur":"MM3.DEFENSE.Vigueur",
     "robustesse":"MM3.DEFENSE.Robustesse",
     "volonte":"MM3.DEFENSE.Volonte",
+    // Ability-based resistances
+    "force":"MM3.CARACTERISTIQUES.Force",
+    "endurance":"MM3.CARACTERISTIQUES.Endurance",
+    "agilite":"MM3.CARACTERISTIQUES.Agilite",
+    "dexterite":"MM3.CARACTERISTIQUES.Dexterite",
+    "combativite":"MM3.CARACTERISTIQUES.Combativite",
+    "intelligence":"MM3.CARACTERISTIQUES.Intelligence",
+    "sensibilite":"MM3.CARACTERISTIQUES.Sensibilite",
+    "presence":"MM3.CARACTERISTIQUES.Presence",
 }
 
 MM3.jetdefenses = {
@@ -186,6 +195,15 @@ MM3.jetdefenses = {
     "vigueur":"MM3.ROLL.DEFENSE.Vigueur",
     "robustesse":"MM3.ROLL.DEFENSE.Robustesse",
     "volonte":"MM3.ROLL.DEFENSE.Volonte",
+    // Ability-based resistances
+    "force":"MM3.CARACTERISTIQUES.Force",
+    "endurance":"MM3.CARACTERISTIQUES.Endurance",
+    "agilite":"MM3.CARACTERISTIQUES.Agilite",
+    "dexterite":"MM3.CARACTERISTIQUES.Dexterite",
+    "combativite":"MM3.CARACTERISTIQUES.Combativite",
+    "intelligence":"MM3.CARACTERISTIQUES.Intelligence",
+    "sensibilite":"MM3.CARACTERISTIQUES.Sensibilite",
+    "presence":"MM3.CARACTERISTIQUES.Presence",
 }
 
 MM3.vitesse = {
@@ -310,6 +328,11 @@ MM3.StdAtk = {
             defense:10,
             effet:0,
         },
+        weaken:{
+            type:'vigueur',
+            defense:10,
+            effet:0,
+        },
         other:{
             type:'robustesse',
             defense:15,
@@ -362,7 +385,10 @@ MM3.StdAtk = {
         value:1,
         status:['neutralized']
         },
-    ]
+    ],
+    weaken:{
+        targetAbility:'force' // Which ability is being weakened
+    }
     },
     mod:{
         atk:0,
@@ -376,4 +402,5 @@ MM3.StdAtk = {
     text:"",
     isAffliction:false,
     isDmg:false,
+    isWeaken:false,
 };

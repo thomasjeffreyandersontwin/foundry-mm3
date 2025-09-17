@@ -1710,6 +1710,11 @@ export async function processImport(actor, data, actorType='personnage') {
   update['name'] = data.name;
 
   await actor.update(update);
+  //if we have the module then convert attacks
+    if(game.modules.get("mm3e-better-attacks")!=null){
+      await window.CreateAttacksFromPowers(actor, null, true);
+      //await window.ImportSpeedFromPowers(actor)
+  }
 }
 
 export async function processMinions(actor, data) {
@@ -2192,6 +2197,7 @@ export async function rollVs(actor, name, score, vs, data={}, dataKey={}) {
     successOrFail:'fail',
   };
 
+  let appliedConditions = []
   if(typeAtk !== false && !isSuccess) {
     const blessure = Number(actor.system.blessure);
     let update = [];
@@ -2264,9 +2270,16 @@ export async function rollVs(actor, name, score, vs, data={}, dataKey={}) {
       }
 
       for(let s of status) {
-        let status = await setStatus(actor, s, false);
+        let statusEffect = await setStatus(actor, s, false);
 
-        if(status) update.push(status);
+        if(statusEffect) {
+          update.push(statusEffect);
+        }
+        
+        // Add the condition name to our list for chat display purposes
+        let status = CONFIG.statusEffects.find((se) => se.id === s);
+        const conditionName = game.i18n.localize(status.label);
+        appliedConditions.push(conditionName);
       }
 
       blessures[`system.blessure`] = blessure+Number(valueDmg);
@@ -2298,9 +2311,15 @@ export async function rollVs(actor, name, score, vs, data={}, dataKey={}) {
       }
 
       for(let s of status) {
-        let status = await setStatus(actor, s, false);
+        let statusEffect = await setStatus(actor, s, false);
 
-        if(status) update.push(status);
+        if(statusEffect) {
+          update.push(statusEffect);
+        }
+        // Add the condition name to our list for chat display
+        let status = CONFIG.statusEffects.find((se) => se.id === s);
+        const conditionName = game.i18n.localize(status.label);
+        appliedConditions.push(conditionName);
       }
 
       blessures[`system.blessure`] = blessure+Number(valueDmg);
@@ -2308,6 +2327,65 @@ export async function rollVs(actor, name, score, vs, data={}, dataKey={}) {
       if(update.length > 0) await token.actor.createEmbeddedDocuments("ActiveEffect", update);
     }
 
+    if(typeAtk === 'weaken') {
+      // Weaken uses points of failure (not degrees) to reduce abilities
+      let pointsOfFailure = margeBrut > 0 ? margeBrut : 0; // Raw margin, not degrees
+      const targetAbility = dataAtk.repeat.weaken?.targetAbility || 'force';
+      
+      if(pointsOfFailure > 0) {
+        // Reduce the target ability by points of failure
+        // Check if target is a defense (cost 1 PP) or ability (cost 2 PP)
+        const defenseTraits = ['esquive', 'parade', 'vigueur', 'robustesse', 'volonte'];
+        const isDefense = defenseTraits.includes(targetAbility);
+        
+        if(isDefense) {
+          // Defenses cost 1 PP each - no division needed
+          pointsOfFailure = pointsOfFailure;
+        } else {
+          // Abilities cost 2 PP each - divide by 2
+          pointsOfFailure = Math.floor(pointsOfFailure / 2);
+        }
+
+
+        // Create update for the ability reduction
+        let abilityUpdate = {};
+        
+        if(isDefense) {
+          // Update defense path
+          abilityUpdate[`system.defense.${targetAbility}.divers`] = 
+            (token.actor.system.defense[targetAbility]?.divers || 0) - pointsOfFailure;
+        } else {
+          // Update ability path
+          abilityUpdate[`system.caracteristique.${targetAbility}.divers`] = 
+            (token.actor.system.caracteristique[targetAbility]?.divers || 0) - pointsOfFailure;
+        }
+        //add weaken mm3e conditon / status ewffect
+        let weakenUpdate = {};
+        weakenUpdate[`system.status`] = 'downgrade';
+        await token.actor.update(weakenUpdate);
+        await token.actor.update(abilityUpdate);
+        
+        // Add weaken effect announcement
+        let abilityName;
+        if(isDefense) {
+          abilityName = game.i18n.localize(CONFIG.MM3.defenses[targetAbility]);
+        } else {
+          // Map ability names to proper translation keys
+          const abilityTranslationMap = {
+            'force': 'MM3.CARACTERISTIQUES.Force',
+            'endurance': 'MM3.CARACTERISTIQUES.Endurance',
+            'agilite': 'MM3.CARACTERISTIQUES.Agilite',
+            'dexterite': 'MM3.CARACTERISTIQUES.Dexterite',
+            'combativite': 'MM3.CARACTERISTIQUES.Combativite',
+            'intelligence': 'MM3.CARACTERISTIQUES.Intelligence',
+            'sensibilite': 'MM3.CARACTERISTIQUES.Sensibilite',
+            'presence': 'MM3.CARACTERISTIQUES.Presence'
+          };
+          abilityName = game.i18n.localize(abilityTranslationMap[targetAbility] || `MM3.CARACTERISTIQUES.${targetAbility}`);
+        }
+        appliedConditions.push(`${abilityName} reduced by ${pointsOfFailure}`);
+      }
+    }
     if(!foundry.utils.isEmpty(blessures) && !isStacked) await token.actor.update(blessures);
     else if(!foundry.utils.isEmpty(blessures) && isStacked) {
       const tgt = token.id;
@@ -2361,6 +2439,16 @@ export async function rollVs(actor, name, score, vs, data={}, dataKey={}) {
     pRollSave.btn = btn;
     pRollSave.dataAtk = JSON.stringify(dataAtk);
     pRollSave.dataStr = JSON.stringify(dataStr);
+    
+    //use the attack name not skill name, add target to chat card
+    pRollSave.flavor = dataAtk.label || name;
+    pRollSave.tgtName = token.name;
+    pRollSave.typeAtk = typeAtk;
+  }
+  
+  // Add applied conditions to chat message data if any were collected
+  if(typeof appliedConditions !== 'undefined' && appliedConditions.length > 0) {
+    pRollSave.appliedConditions = appliedConditions;
   }
 
   const saveMsgData = {
@@ -2404,6 +2492,17 @@ export async function rollAtkTgt(actor, name, score, data, tgt, dataKey={}) {
 
   const dataCbt = data.attaque;
   const dataStr = data.strategie;
+  
+  // extra check if this attack has no attack roll (some workslows call this func directly even for noAttack)
+  const isPerceptionAttack = dataCbt.type === 'combatperception';
+  const noAttackRoll = dataCbt.settings?.noatk || isPerceptionAttack;
+  
+  if (noAttackRoll) {
+    // For no attack roll attacks, call rollWAtk instead
+    await rollWAtk(actor, name, {attaque: dataCbt, strategie: dataStr});
+    return;
+  }
+  
   const roll = new Roll(`${dicesBase} + ${total} + ${dataStr.attaque} + ${mod}`);
   await roll.evaluate();
 
@@ -2421,8 +2520,10 @@ export async function rollAtkTgt(actor, name, score, data, tgt, dataKey={}) {
   const defpassive = dataCbt?.save.passive?.type ?? 'parade';
   const isDmg = dataCbt.isDmg;
   const isAffliction = dataCbt.isAffliction;
+  const isWeaken = dataCbt.isWeaken;
   const saveAffliction = dataCbt.save.affliction.type;
   const saveType = dataCbt.save.dmg.type;
+  const saveWeaken = dataCbt.save.weaken?.type ?? 'vigueur';
   const areaBase = parseInt(dataCbt?.area?.esquive ?? 0);
 
   let ddDefense = 0;
@@ -2450,6 +2551,47 @@ export async function rollAtkTgt(actor, name, score, data, tgt, dataKey={}) {
       traType = game.i18n.localize("MM3.DEFENSE.Volonte");
       break;
 
+    // any ability can be a resistance with alternate resistance
+    case 'force':
+      ddDefense = (tokenData.caracteristique?.force?.total ?? 0) + 10;
+      traType = game.i18n.localize("MM3.CARACTERISTIQUES.Force");
+      break;
+
+    case 'dexterite':
+      ddDefense = (tokenData.caracteristique?.dexterite?.total ?? 0) + 10;
+      traType = game.i18n.localize("MM3.CARACTERISTIQUES.Dexterite");
+      break;
+
+    case 'combativite':
+      ddDefense = (tokenData.caracteristique?.combativite?.total ?? 0) + 10;
+      traType = game.i18n.localize("MM3.CARACTERISTIQUES.Combativite");
+      break;
+
+    case 'intelligence':
+      ddDefense = (tokenData.caracteristique?.intelligence?.total ?? 0) + 10;
+      traType = game.i18n.localize("MM3.CARACTERISTIQUES.Intelligence");
+      break;
+
+    case 'presence':
+      ddDefense = (tokenData.caracteristique?.presence?.total ?? 0) + 10;
+      traType = game.i18n.localize("MM3.CARACTERISTIQUES.Presence");
+      break;
+
+    case 'agilite':
+      ddDefense = (tokenData.caracteristique?.agilite?.total ?? 0) + 10;
+      traType = game.i18n.localize("MM3.CARACTERISTIQUES.Agilite");
+      break;
+
+    case 'sensibilite':
+      ddDefense = (tokenData.caracteristique?.sensibilite?.total ?? 0) + 10;
+      traType = game.i18n.localize("MM3.CARACTERISTIQUES.Sensibilite");
+      break;
+
+    case 'endurance':
+      ddDefense = (tokenData.caracteristique?.endurance?.total ?? 0) + 10;
+      traType = game.i18n.localize("MM3.CARACTERISTIQUES.Endurance");
+      break;
+
     default:
       ddDefense = esquive;
       traType = game.i18n.localize("MM3.DEFENSE.DDEsquive");
@@ -2474,60 +2616,45 @@ export async function rollAtkTgt(actor, name, score, data, tgt, dataKey={}) {
         saveType:'esquive',
         vs:10+Number(areaBase)+Number(dataCbt.effet)+Number(dataStr.effet),
       });
-    } else if(isDmg && isAffliction) {
-      if(tokenActor.type === 'vehicule') {
-        if(saveType === 'robustesse') {
-          btn.push({
-            typeAtk:'dmg',
-            target:tgt,
-            saveType:saveType,
-            vs:Number(dataCbt.save.dmg.effet)+Number(dataStr.effet)+Number(dataCbt.save.dmg.defense),
-          });
-        }
+    }
+    
 
-        if(saveAffliction === 'robustesse') {
-          btn.push(
-          {
-              typeAtk:'affliction',
-              target:tgt,
-              saveType:saveAffliction,
-              vs:Number(dataCbt.save.affliction.effet)+Number(dataStr.effet)+Number(dataCbt.save.affliction.defense),
+    // Process all effect types - weaken, afflictin, dmg
+    const effectTypes = [
+      { type: 'dmg', isActive: isDmg, saveType: saveType, vehicleCheck: saveType === 'robustesse' },
+      { type: 'affliction', isActive: isAffliction, saveType: saveAffliction, vehicleCheck: saveAffliction === 'robustesse' },
+      { type: 'weaken', isActive: isWeaken, saveType: saveWeaken, vehicleCheck: saveWeaken === 'robustesse' }
+    ];
+
+    effectTypes.forEach(effect => {
+      if (effect.isActive && (tokenActor.type !== 'vehicule' || (tokenActor.type === 'vehicule' && effect.vehicleCheck))) {
+        const savedDefense = dataCbt.save?.[effect.type]?.defense;
+        const baseDefense = savedDefense != null ? Number(savedDefense) : (effect.saveType === 'robustesse' ? 15 : 10);
+        if(getEffectPowerLevel(dataCbt, effect.type, actor) !== 0) {
+        btn.push({
+          typeAtk: effect.type,
+          target: tgt,
+          saveType: effect.saveType,
+            vs: getEffectPowerLevel(dataCbt, effect.type, actor) + Number(dataStr.effet) + baseDefense,
           });
-        }
-      } else {
+        };
+      }
+    });
+    if(tokenActor.type === 'vehicule') {
+      if(saveType === 'robustesse') {
         btn.push({
           typeAtk:'dmg',
           target:tgt,
           saveType:saveType,
           vs:Number(dataCbt.save.dmg.effet)+Number(dataStr.effet)+Number(dataCbt.save.dmg.defense),
-        },
-        {
-          typeAtk:'affliction',
-          target:tgt,
-          saveType:saveAffliction,
-          vs:Number(dataCbt.save.affliction.effet)+Number(dataStr.effet)+Number(dataCbt.save.affliction.defense),
         });
       }
-    } else if(isDmg && (tokenActor.type !== 'vehicule' || (tokenActor.type === 'vehicule' && saveType === 'robustesse'))) {
-      btn.push({
-        typeAtk:'dmg',
-        target:tgt,
-        saveType:saveType,
-        vs:dataCbt.links.pwr === "" && dataCbt.links.ability === "" ? Number(dataCbt.save.dmg.effet)+Number(dataStr.effet)+Number(dataCbt.save.dmg.defense) : Number(dataCbt.effet)+Number(dataStr.effet)+Number(dataCbt.save.dmg.defense),
-      });
-    } else if(isAffliction && (tokenActor.type !== 'vehicule' || (tokenActor.type === 'vehicule' && saveAffliction === 'robustesse'))) {
-      btn.push({
-        typeAtk:'affliction',
-        target:tgt,
-        saveType:saveAffliction,
-        vs:dataCbt.links.pwr === "" && dataCbt.links.ability === ""  ? Number(dataCbt.save.affliction.effet)+Number(dataStr.effet)+Number(dataCbt.save.affliction.defense) : Number(dataCbt.effet)+Number(dataStr.effet)+Number(dataCbt.save.affliction.defense),
-      });
     }
 
     pRoll = {
       flavor:name === "" ? " - " : `${name}`,
       tooltip:await roll.getTooltip(),
-      formula:formula,
+      formula:mod === 0 ? `${dicesFormula} + ${total} + ${dataStr.attaque}` : `${dicesFormula} + ${total} + ${dataStr.attaque} + ${mod}`,
       result:roll.total,
       isCombat:true,
       isSuccess:true,
@@ -2537,6 +2664,7 @@ export async function rollAtkTgt(actor, name, score, data, tgt, dataKey={}) {
       type:traType,
       text:dataCbt.text,
       tgtName:token.actor.name,
+      tgtImage:token.texture.src,
       dataAtk:JSON.stringify(dataCbt),
       dataStr:JSON.stringify(dataStr),
       btn:btn,
@@ -2553,6 +2681,7 @@ export async function rollAtkTgt(actor, name, score, data, tgt, dataKey={}) {
       type:traType,
       text:dataCbt.text,
       tgtName:token.name,
+      tgtImage:token.texture.src,
     };
   }
 
@@ -2601,33 +2730,39 @@ export async function rollTgt(actor, name, data, tgt) {
       target:tgt,
       saveType:'esquive',
       vs:dataCbt.pwr === "" ? Number(areaBase)+Number(dataStr.effet) : 10+Number(areaBase)+Number(dataCbt.effet)+Number(dataStr.effet),
+      label: 'EVADE'  //need to internationlize
     });
   }
 
-  if(isDmg) {
-    btn.push({
-      typeAtk:'dmg',
-      target:tgt,
-      saveType:saveType,
-      vs:dataCbt.pwr === "" ? Number(dataCbt.save.dmg.effet)+Number(dataStr.effet)+Number(dataCbt.save.dmg.defense) : Number(dataCbt.effet)+Number(dataStr.effet)+Number(dataCbt.save.dmg.defense),
-    });
-  }
+  // Process all effect types
+  const effectTypes = [
+    { type: 'dmg', isActive: isDmg, saveType: saveType },
+    { type: 'affliction', isActive: isAffliction, saveType: saveAffliction }
+  ];
 
-  if(isAffliction) {
-    btn.push({
-      typeAtk:'affliction',
-      target:tgt,
-      saveType:saveAffliction,
-      vs:dataCbt.pwr === "" ? Number(dataCbt.save.affliction.effet)+Number(dataStr.effet)+Number(dataCbt.save.affliction.defense) : Number(dataCbt.effet)+Number(dataStr.effet)+Number(dataCbt.save.affliction.defense),
-    });
-  }
+  effectTypes.forEach(effect => {
+    if (effect.isActive) {
+      const savedDefense = dataCbt.save?.[effect.type]?.defense;
+      const baseDefense = savedDefense != null ? Number(savedDefense) : (effect.saveType === 'robustesse' ? 15 : 10);
+      btn.push({
+        typeAtk: effect.type,
+        target: tgt,
+        saveType: effect.saveType,
+        vs: getEffectPowerLevel(dataCbt, effect.type , actor) + Number(dataStr.effet) + baseDefense,
+        label: isArea ? 'RESISTANCE' : game.i18n.localize(CONFIG.MM3.defenses[effect.saveType]) //need to internationlize
+      });
+    }
+  });
 
   pRoll = {
-    flavor:name === "" ? " - " : `${name}`,
+    flavor:name === "" ? dataCbt.label  : `${name}`,
     isCombat:true,
     isSuccess:true,
     text:dataCbt.text,
     tgtName:actTgt.name,
+    tgtImage:actTgt.texture.src || "",
+    attackerName: actor?.name || "Unknown",
+    attackerImage: actor?.token?.img || actor?.img || "",
     dataAtk:JSON.stringify(dataCbt),
     dataStr:JSON.stringify(dataStr),
     btn:btn
@@ -2664,15 +2799,31 @@ export async function rollWAtk(actor, name, data) {
     text:dataCbt.text
   };
 
-  if(dataCbt.isDmg && dataCbt.links.pwr === '') pRoll.effet += Number(dataCbt.save.dmg.effet)+Number(dataStr.effet)+Number(dataCbt.save.dmg.defense);
-  else if(dataCbt.isDmg && !dataCbt.isAffliction) pRoll.effet += Number(dataCbt.effet)+Number(dataStr.effet)+Number(dataCbt.save.dmg.defense);
-  else if(dataCbt.isDmg) pRoll.effet += Number(dataCbt.save.dmg.effet)+Number(dataStr.effet)+Number(dataCbt.save.dmg.defense);
+  const isDmg = dataCbt.isDmg;
+  const isAffliction = dataCbt.isAffliction;
+  const isWeaken = dataCbt.isWeaken;
+  const saveAffliction = dataCbt.save.affliction.type;
+  const saveType = dataCbt.save.dmg.type;
+  const saveWeaken = dataCbt.save.weaken?.type ?? 'vigueur';
 
-  if(pRoll.effet !== '') pRoll.effet += ` / `
+  // Process all effect types
+  const effectTypes = [
+    { type: 'dmg', isActive: isDmg, saveType: saveType },
+    { type: 'affliction', isActive: isAffliction, saveType: saveAffliction },
+    { type: 'weaken', isActive: isWeaken, saveType: saveWeaken }
+  ];
 
-  if(dataCbt.isAffliction && dataCbt.links.pwr === '') pRoll.effet += Number(dataCbt.save.affliction.effet)+Number(dataStr.effet)+Number(dataCbt.save.affliction.defense);
-  else if(dataCbt.isAffliction && !dataCbt.isDmg) pRoll.effet += Number(dataCbt.effet)+Number(dataStr.effet)+Number(dataCbt.save.affliction.defense);
-  else if(dataCbt.isAffliction) pRoll.effet += Number(dataCbt.save.affliction.effet)+Number(dataStr.effet)+Number(dataCbt.save.affliction.defense);
+  const effetValues = [];
+  effectTypes.forEach(effect => {
+    if (effect.isActive) {
+      const savedDefense = dataCbt.save?.[effect.type]?.defense;
+      const baseDefense = savedDefense != null ? Number(savedDefense) : (effect.saveType === 'robustesse' ? 15 : 10);
+      const effetValue = getEffectPowerLevel(dataCbt, effect.type, actor) + Number(dataStr.effet) + baseDefense;
+      effetValues.push(effetValue);
+    }
+  });
+
+  pRoll.effet = effetValues.join(' / ');
 
   const rollMsgData = {
     user: game.user.id,
@@ -2958,6 +3109,47 @@ export function speedCalc(int) {
   return result;
 }
 
+// Common function to get the correct power level for linked vs standalone attacks
+export function getEffectPowerLevel(dataCbt, effectType, actor = null) {
+  const isDmg = dataCbt.isDmg;
+  const isAffliction = dataCbt.isAffliction;
+  const isWeaken = dataCbt.isWeaken;
+  const linkedCount = [isDmg, isAffliction, isWeaken].filter(Boolean).length;
+  const isLinkedCombo = linkedCount > 1;
+
+  let pl = 0
+  const linkedPowerId = dataCbt.links.pwr;
+  if(linkedPowerId && actor) {
+    //find the power in the actor.items
+    const linkedPower = actor.items.get(linkedPowerId);
+    if(linkedPower) {
+      pl = Number(linkedPower.system.cout.rang ?? 0);
+    }
+  }
+  //repeat for linked ability
+  const linkedAbilityId = dataCbt.links.ability;
+  if(linkedAbilityId && actor) {
+      const linkedAbility = actor.system.caracteristique[linkedAbilityId];
+    if(linkedAbility) {
+      pl += Number(linkedAbility.total ?? 0);
+    }
+  }
+  
+  
+
+  if (pl === 0 ) {
+      const specificEffectLevel = dataCbt.save?.[effectType]?.effet;
+    pl =  Number(specificEffectLevel);
+  }
+  if(pl === 0) {
+  // Fall back to overall attack level for non-linked attacks
+    pl =  isLinkedCombo ? 0 : Number(dataCbt.effet ?? 0);
+  }
+  
+  return pl;
+}
+
+
 export function commonHTML(html, origin, data={}) {
   const hasItm = data?.hasItem ?? false;
   const hasAtk = data?.hasAtk ?? false;
@@ -3006,6 +3198,7 @@ export function commonHTML(html, origin, data={}) {
         'save',
         'dmg',
         'affliction',
+        'weaken',
         'modAtk',
         'modEff',
         'defpassive',

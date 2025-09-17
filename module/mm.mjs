@@ -1186,7 +1186,7 @@ Hooks.on('renderChatMessage', (message, html, data) => {
 
       const tokenActor = token.actor;
       const tokenData = tokenActor.system;
-      const saveScore = tokenActor.type === 'vehicule' ? tokenData.caracteristique[savetype].total : tokenData.defense[savetype].total;
+      const saveScore = tokenActor.type === 'vehicule' ? tokenData.caracteristique[savetype]?.total :  tokenData.caracteristique[savetype]?.total ?  tokenData.caracteristique[savetype].total:tokenData.defense[savetype].total;
       const name = `${game.i18n.localize(CONFIG.MM3.defenses[savetype])}`;
 
       rollVs(tokenActor, name, saveScore, vs, {typeAtk:typeAtk, atk:dataAtk, str:dataStr, tkn:token}, {alt:hasAlt});
@@ -1381,7 +1381,20 @@ async function createMacro(bar, data, slot) {
 }
 
 async function RollMacro(actorId, sceneId, tokenId, type, what, id, author, event) {
-  const actor = tokenId === 'null' ? game.actors.get(actorId) : game.scenes.get(sceneId).tokens.find(token => token.id === tokenId).actor;
+  // old code was causing intermittent crashes
+  let actor 
+  if(tokenId!=null){
+	actor = tokenId
+  }
+  else{
+  	actor = game.actors.get(actorId)
+  }
+  if(!actor){
+    const tokens = game.scenes.get(sceneId).tokens
+    const token  = a.find(token => token.id === tokenId)
+    actor = token.actor
+  }
+
 
   const data = actor.system;
 
@@ -1455,6 +1468,7 @@ async function RollMacro(actorId, sceneId, tokenId, type, what, id, author, even
   } else if(type === 'attaque' && tgt === undefined && !atk.settings.noatk) rollAtk(actor, name, total, {attaque:atk, strategie:strategie}, {alt:hasAlt});
   else if(type === 'attaque' && atk.settings.noatk) rollWAtk(actor, name, {attaque:atk, strategie:strategie});
   else rollStd(actor, name, total, {shift:hasShift, alt:hasAlt});
+  await Hooks.call('attackRolled', atk, token,strategie, hasAlt);
 
   return result;
 };

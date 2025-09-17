@@ -304,7 +304,8 @@
       "TYPE":{
         "Autre":"Other",
         "Degats":"Damage",
-        "Affliction":"Affliction"
+        "Affliction":"Affliction",
+        "Weaken":"Weaken"
       },
       "DEFENSE":{
         "Basedefense":"Base defense roll",

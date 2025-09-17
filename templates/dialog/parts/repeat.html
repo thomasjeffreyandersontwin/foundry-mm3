@@ -22,6 +22,15 @@
             <span>{{localize 'MM3.EFFET.Rang'}} : </span>
             <input type="number" value="{{effet}}" min="0" />
         </label>
+
+        {{#if weakenTargets}}
+        <label class="targetability">
+            <span>Target Ability: </span>
+            <select class="targetability">
+                {{selectOptions weakenTargets selected=targetAbility nameAttr="key" labelAttr="label"}}
+            </select>
+        </label>
+        {{/if}}
     </div>
 
     <div class="data" style="display:grid;">
