@@ -73,6 +73,13 @@
                     </div>
                 {{/each}}
             {{/if}}
+            {{#if forceHit}}
+            <div class="btn force-hit">
+                <button class="btnForceHit" data-target="{{forceHit.target}}" data-atk="{{forceHit.dataAtk}}" data-str="{{forceHit.dataStr}}">
+                    Force Hit
+                </button>
+            </div>
+            {{/if}}
         {{/if}}
         {{#if vs}}
             <h4 class="dice-total attack">

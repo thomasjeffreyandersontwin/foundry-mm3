@@ -2670,6 +2670,9 @@ export async function rollAtkTgt(actor, name, score, data, tgt, dataKey={}) {
       btn:btn,
     };
   } else {
+    // Check if this is a vanilla attack (not area, not perception)
+    const isVanillaAttack = !isArea && dataCbt.type !== 'combatperception';
+    
     pRoll = {
       flavor:`${name}`,
       tooltip:await roll.getTooltip(),
@@ -2682,6 +2685,12 @@ export async function rollAtkTgt(actor, name, score, data, tgt, dataKey={}) {
       text:dataCbt.text,
       tgtName:token.name,
       tgtImage:token.texture.src,
+      // Add Force Hit button data for vanilla attacks on miss
+      forceHit: isVanillaAttack ? {
+        dataAtk: JSON.stringify(dataCbt),
+        dataStr: JSON.stringify(dataStr),
+        target: tgt
+      } : null
     };
   }
 
@@ -3110,7 +3119,7 @@ export function speedCalc(int) {
 }
 
 // Common function to get the correct power level for linked vs standalone attacks
-export function getEffectPowerLevel(dataCbt, effectType, actor = null) {
+export function getEffectPowerLevel(dataCbt, effectType, actor) {
   const isDmg = dataCbt.isDmg;
   const isAffliction = dataCbt.isAffliction;
   const isWeaken = dataCbt.isWeaken;
@@ -3119,17 +3128,25 @@ export function getEffectPowerLevel(dataCbt, effectType, actor = null) {
 
   let pl = 0
   const linkedPowerId = dataCbt.links.pwr;
-  if(linkedPowerId && actor) {
-    //find the power in the actor.items
-    const linkedPower = actor.items.get(linkedPowerId);
-    if(linkedPower) {
-      pl = Number(linkedPower.system.cout.rang ?? 0);
+  
+  if(linkedPowerId){
+     if (isLinkedCombo) {
+      const linkedPower = actor.items.get(linkedPowerId);
+      if(linkedPower && effectType === "affliction") {
+        pl = Number(linkedPower.system.cout.total ?? 0);
+      }
     }
   }
-  //repeat for linked ability
+  if(isLinkedCombo && effectType=="dmg"){
+      pl = Number(dataCbt.save.dmg.effet)
+  }
+  if(isLinkedCombo && effectType==="weaken"){
+     pl = Number(dataCbt.save.weaken.effet)
+  }
+ 
   const linkedAbilityId = dataCbt.links.ability;
-  if(linkedAbilityId && actor) {
-      const linkedAbility = actor.system.caracteristique[linkedAbilityId];
+  if(linkedAbilityId) {
+    const linkedAbility = actor.system.caracteristique[linkedAbilityId];
     if(linkedAbility) {
       pl += Number(linkedAbility.total ?? 0);
     }

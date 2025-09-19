@@ -74,7 +74,11 @@
         {{/if}}
 
         {{#if (and (eq key.isAffliction true) (eq key.isDmg true) (eq key.isWeaken true))}}
-            <span class="score" title="{{localize "MM3.ROLL.TYPE.Degats"}} / {{localize "MM3.ROLL.TYPE.Affliction"}} / {{localize "MM3.ROLL.TYPE.Weaken"}}">{{key.save.dmg.effet}}/{{key.save.affliction.effet}}/{{key.save.weaken.effet}}</span>
+                <span class="score" title="{{localize "MM3.ROLL.TYPE.Degats"}} / {{localize "MM3.ROLL.TYPE.Affliction"}} / {{localize "MM3.ROLL.TYPE.Weaken"}}">
+                {{#if (gt key.save.dmg.effet 0)}}{{key.save.dmg.effet}}{{/if}}{{#if (and (gt key.save.dmg.effet 0) (or (gt key.save.affliction.effet 0) (gt key.save.weaken.effet 0)))}}/{{/if}}
+                {{#if (gt key.save.affliction.effet 0)}}{{key.save.affliction.effet}}{{/if}}{{#if (and (gt key.save.affliction.effet 0) (gt key.save.weaken.effet 0))}}/{{/if}}
+                {{#if (gt key.save.weaken.effet 0)}}{{key.save.weaken.effet}}{{/if}}
+            </span>
         {{/if}}
 
         {{#if (and (eq key.isAffliction true) (eq key.isDmg true) (eq key.isWeaken false))}}
@@ -84,7 +88,9 @@
 
         {{#if (and (eq key.isAffliction true) (eq key.isDmg true) (eq key.isWeaken true))}}
             <span class="score" title="{{localize "MM3.ROLL.TYPE.Degats"}} / {{localize "MM3.ROLL.TYPE.Affliction"}} / {{localize "MM3.ROLL.TYPE.Weaken"}}">
-                {{translate 'defenses' key.save.dmg.type}} / {{translate 'defenses' key.save.affliction.type}} / {{translate 'defenses' key.save.weaken.type}}
+                {{#if (gt key.save.dmg.effet 0)}}{{translate 'defenses' key.save.dmg.type}}{{/if}}{{#if (and (gt key.save.dmg.effet 0) (or (gt key.save.affliction.effet 0) (gt key.save.weaken.effet 0)))}} / {{/if}}
+                {{#if (gt key.save.affliction.effet 0)}}{{translate 'defenses' key.save.affliction.type}}{{/if}}{{#if (and (gt key.save.affliction.effet 0) (gt key.save.weaken.effet 0))}} / {{/if}}
+                {{#if (gt key.save.weaken.effet 0)}}{{translate 'defenses' key.save.weaken.type}}{{/if}}
             </span>
         {{/if}}
 

@@ -1,4 +1,4 @@
-// Import document classes.
+// Import document classes. 
 import { MM3Actor } from "./documents/actor.mjs";
 import { MM3Item } from "./documents/item.mjs";
 
@@ -1243,6 +1243,32 @@ Hooks.on('renderChatMessage', (message, html, data) => {
       });
   });
 
+  html.find('button.btnForceHit').click(async ev => {
+      ev.stopPropagation();
+      console.log("btnForceHit clicked **********");
+      const target = $(ev.currentTarget);
+      const tgt = target.data('target');
+      const dataAtk = target.data('atk');
+      const dataStr = target.data('str');
+      const token = canvas.scene.tokens.find(token => token.id === tgt);
+      const actor = message.speaker.actor ? game.actors.get(message.speaker.actor) : null;
+
+      if(!actor) {
+        ui.notifications.error("Could not find attacker actor.");
+        return;
+      }
+
+      if(!token) {
+        ui.notifications.error("Could not find target token.");
+        return;
+      }
+
+      if(token.actor.ownership[game.user.id] !== 3 && token.actor.ownership.default !== 3) return;
+
+      // Force the attack to hit by calling rollTgt (same as perception attacks)
+      await rollTgt(actor, dataAtk.label, {attaque: dataAtk, strategie: dataStr}, tgt);
+  });
+
   if(isInitiative) {
     $(html.find('span.flavor-text')).remove();
     $(html.find('div.dice-roll')).addClass('mm3-roll');
@@ -1383,7 +1409,7 @@ async function createMacro(bar, data, slot) {
 async function RollMacro(actorId, sceneId, tokenId, type, what, id, author, event) {
   // old code was causing intermittent crashes
   let actor 
-  if(tokenId!=null){
+  if(tokenId!="null"){
 	actor = tokenId
   }
   else{
@@ -1434,7 +1460,7 @@ async function RollMacro(actorId, sceneId, tokenId, type, what, id, author, even
 
       if((typeAtk === 'combatcontact' || typeAtk === 'combatdistance') && idSkill !== '') {
         let skill = game.mm3.getDataSubSkill(actor, typeAtk, idSkill);
-        name = skill.label;
+        name = atk.label;
         total = skill.total;
       } else if(typeAtk === 'other') {
         name = atk.label;
